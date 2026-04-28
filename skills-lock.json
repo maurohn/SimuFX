@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "cpp-pro": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "f475155435558cef35ca91a6f72f88c98d29e827445a65b5df977ba2f57a150b"
+    },
+    "game-engine": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "20057f62cf7a8b2d9f940b3de0b18e5426e8f4bb50e236d36b1033aa0d42c4d8"
+    },
+    "shader-programming-glsl": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "45bef4764321c78c6bf14c5427fbb87912e9d54f858b702a8ddabd0cac9161d8"
+    },
+    "technical-documentation": {
+      "source": "vincentkoc/dotskills",
+      "sourceType": "github",
+      "computedHash": "eb321145edd7312f4c2d76e24ed3dc2233040abbf82ab5408ca012af732db712"
+    }
+  }
+}

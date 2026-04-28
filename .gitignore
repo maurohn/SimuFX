@@ -1,0 +1,25 @@
+# Build outputs
+_build/
+*.dll
+*.lib
+*.exp
+*.obj
+*.pdb
+*.ilk
+
+# Snapshots (binarios)
+snapshots/
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# CMake cache
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Logs
+*.log
