@@ -33,3 +33,4 @@ dist/*.dll
 dist/SimuConfig.exe
 tools/SimuConfig/bin/
 tools/SimuConfig/obj/Release/net8.0-windows/win-x86/
+dist/*.zip

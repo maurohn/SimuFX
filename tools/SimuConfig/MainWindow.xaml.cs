@@ -466,27 +466,37 @@ namespace SimuConfig
             var ini = new IniFile();
             if (File.Exists(path)) ini.Load(path);
 
+            var ic = System.Globalization.CultureInfo.InvariantCulture;
+
             ini.Set("General","Preset", CbPreset.SelectedItem?.ToString() ?? "Dynamic");
             ini.Set("General","Enabled", "true");
-            ini.Set("General","UseDirectValues", "true");  // Tell engine to use these values as-is
+            ini.Set("General","ShowOverlay", "true");
+            ini.Set("General","UseDirectValues", "true");
+
             ini.Set("Tonemap","Enabled",    ChkTonemap.IsChecked == true ? "true":"false");
-            ini.Set("Tonemap","Exposure",   SldExposure.Value.ToString("F2"));
-            ini.Set("Tonemap","Contrast",   SldContrast.Value.ToString("F2"));
-            ini.Set("Tonemap","Shadows",    SldShadows.Value.ToString("F2"));
-            ini.Set("Tonemap","Highlights", SldHighlights.Value.ToString("F2"));
+            ini.Set("Tonemap","Exposure",   SldExposure.Value.ToString("F2", ic));
+            ini.Set("Tonemap","Contrast",   SldContrast.Value.ToString("F2", ic));
+            ini.Set("Tonemap","Shadows",    SldShadows.Value.ToString("F2", ic));
+            ini.Set("Tonemap","Highlights", SldHighlights.Value.ToString("F2", ic));
+
             ini.Set("Color","Enabled",    ChkColor.IsChecked == true ? "true":"false");
-            ini.Set("Color","Saturation", SldSaturation.Value.ToString("F2"));
-            ini.Set("Color","Vibrance",   SldVibrance.Value.ToString("F2"));
+            ini.Set("Color","Saturation", SldSaturation.Value.ToString("F2", ic));
+            ini.Set("Color","Vibrance",   SldVibrance.Value.ToString("F2", ic));
+
             ini.Set("AntiAliasing","Enabled",  ChkFXAA.IsChecked == true ? "true":"false");
-            ini.Set("AntiAliasing","Strength",  SldFXAA.Value.ToString("F2"));
+            ini.Set("AntiAliasing","Strength", SldFXAA.Value.ToString("F2", ic));
+
             ini.Set("Sharpen","Enabled",   ChkSharpen.IsChecked == true ? "true":"false");
-            ini.Set("Sharpen","Strength",  SldSharpen.Value.ToString("F2"));
+            ini.Set("Sharpen","Strength",  SldSharpen.Value.ToString("F2", ic));
+
             ini.Set("AmbientOcclusion","Enabled",  ChkAO.IsChecked == true ? "true":"false");
-            ini.Set("AmbientOcclusion","Strength",  SldAO.Value.ToString("F2"));
+            ini.Set("AmbientOcclusion","Strength", SldAO.Value.ToString("F2", ic));
+
             ini.Set("ShadowDepth","Enabled", ChkShadowDepth.IsChecked == true ? "true":"false");
-            ini.Set("ShadowDepth","Depth",   SldShadowDepth.Value.ToString("F2"));
+            ini.Set("ShadowDepth","Depth",   SldShadowDepth.Value.ToString("F2", ic));
+
             ini.Set("Vignette","Enabled",   ChkVignette.IsChecked == true ? "true":"false");
-            ini.Set("Vignette","Intensity", SldVignette.Value.ToString("F2"));
+            ini.Set("Vignette","Intensity", SldVignette.Value.ToString("F2", ic));
 
             // Anisotropic level
             int[] anisoVals = { 1,2,4,8,16 };
