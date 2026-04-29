@@ -51,6 +51,8 @@ PostProcessor::PostProcessor(IDirect3DDevice9* device,
     , m_psSharpenCAS(nullptr)
     , m_psSharpenLuma(nullptr)
     , m_psVignette(nullptr)
+    , m_psAO(nullptr)
+    , m_psShadowDepth(nullptr)
     // State
     , m_savedState(nullptr)
 {
@@ -211,9 +213,11 @@ void PostProcessor::CompileShaders(const std::string& dir)
     load(m_psBloomDown,     "bloom_downsample.hlsl", "PS_BloomDown");
     load(m_psBloomUp,       "bloom_upsample.hlsl",   "PS_BloomUp");
     load(m_psBloomComposite,"bloom_composite.hlsl",  "PS_BloomComposite");
-    load(m_psSharpenCAS,    "sharpen_cas.hlsl",      "PS_SharpenCAS");
-    load(m_psSharpenLuma,   "luma_sharpen.hlsl",     "PS_LumaSharpen");
-    load(m_psVignette,      "vignette.hlsl",         "PS_Vignette");
+    load(m_psSharpenCAS,    "sharpen_cas.hlsl",        "PS_SharpenCAS");
+    load(m_psSharpenLuma,   "luma_sharpen.hlsl",       "PS_LumaSharpen");
+    load(m_psVignette,      "vignette.hlsl",           "PS_Vignette");
+    load(m_psAO,            "ambient_occlusion.hlsl",  "PS_AmbientOcclusion");
+    load(m_psShadowDepth,   "shadow_depth.hlsl",       "PS_ShadowDepth");
 }
 
 // ============================================================================
@@ -249,6 +253,7 @@ void PostProcessor::Reload(const std::string& basePath)
     rel(m_psFXAA); rel(m_psColor); rel(m_psTonemap);
     rel(m_psBloomDown); rel(m_psBloomUp); rel(m_psBloomComposite);
     rel(m_psSharpenCAS); rel(m_psSharpenLuma); rel(m_psVignette);
+    rel(m_psAO); rel(m_psShadowDepth);
 
     m_shaderDir = basePath + "\\shaders\\";
     CompileShaders(m_shaderDir);
@@ -365,6 +370,21 @@ void PostProcessor::SetVignetteConstants()
     SetC(m_device, 8, c.vignetteIntensity, c.vignetteRadius, c.vignetteSoftness, 0);
 }
 
+void PostProcessor::SetAOConstants()
+{
+    const Config& c = ConfigManager::Instance().Get();
+    float rW = 1.0f / (float)m_width;
+    float rH = 1.0f / (float)m_height;
+    SetC(m_device, 0, rW, rH, c.aoRadius, c.aoStrength);
+    SetC(m_device, 1, c.aoBias, 0, 0, 0);
+}
+
+void PostProcessor::SetShadowDepthConstants()
+{
+    const Config& c = ConfigManager::Instance().Get();
+    SetC(m_device, 0, c.shadowDepth, c.shadowThreshold, c.shadowFeather, 0);
+}
+
 // ============================================================================
 // Main Process — called from Present(), after game has finished rendering
 // ============================================================================
@@ -426,7 +446,16 @@ void PostProcessor::Process()
     if (cfg.colorEnabled && m_psColor)
         pass(m_psColor, [&]{ SetColorConstants(); });
 
-    // 3d. Bloom — multi-pass (down → down → up → composite)
+    // 3d. Ambient Occlusion — after color, before bloom
+    //     Darkens crevices, tire contact, panel gaps to simulate occlusion.
+    if (cfg.aoEnabled && m_psAO)
+        pass(m_psAO, [&]{ SetAOConstants(); });
+
+    // 3e. Shadow Depth — deepens existing shadows for richer dark areas
+    if (cfg.shadowDepthEnabled && m_psShadowDepth)
+        pass(m_psShadowDepth, [&]{ SetShadowDepthConstants(); });
+
+    // 3f. Bloom — multi-pass (down → down → up → composite)
     if (cfg.bloomEnabled && m_psBloomDown && m_psBloomUp && m_psBloomComposite) {
         D3DVIEWPORT9 vpFull, vpHalf, vpQuarter;
         m_device->GetViewport(&vpFull);
@@ -470,14 +499,14 @@ void PostProcessor::Process()
         m_device->StretchRect(m_rtSurfB, nullptr, m_rtSurfA, nullptr, D3DTEXF_NONE);
     }
 
-    // 3e. Sharpen (CAS or Luma)
+    // 3g. Sharpen (CAS or Luma)
     if (cfg.sharpenEnabled) {
         IDirect3DPixelShader9* ps =
             (cfg.sharpenMethod == "CAS") ? m_psSharpenCAS : m_psSharpenLuma;
         pass(ps, [&]{ SetSharpenConstants(); });
     }
 
-    // 3f. Vignette
+    // 3h. Vignette
     if (cfg.vignetteEnabled && m_psVignette)
         pass(m_psVignette, [&]{ SetVignetteConstants(); });
 

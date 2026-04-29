@@ -8,7 +8,7 @@ namespace SimuFX {
 struct Config {
     // General
     bool        enabled         = true;
-    std::string preset          = "RaceRoomStyle";
+    std::string preset          = "Dynamic";
     bool        showOverlay     = true;
     int         toggleKey       = VK_F10;
     int         reloadKey       = VK_F9;
@@ -55,27 +55,17 @@ struct Config {
     float vignetteRadius   = 0.85f;
     float vignetteSoftness = 0.45f;
 
-    // TAA (Temporal Anti-Aliasing)
-    bool  taaEnabled    = true;
-    float taaBlend      = 0.15f;   // 0.1-0.25 typical
-    float taaSharp      = 0.0f;    // not used currently
+    // Ambient Occlusion (color-based SSAO approximation)
+    bool  aoEnabled  = false;
+    float aoStrength = 0.65f;   // 0=none, 1=max
+    float aoRadius   = 3.0f;    // sample radius in pixels
+    float aoBias     = 0.02f;   // min luma diff to count as occlusion
 
-    // Depth of Field
-    bool  dofEnabled    = true;
-    float dofFocusY     = 0.55f;   // vertical focus band (0=top, 1=bottom)
-    float dofNearBlur   = 0.0f;
-    float dofFarBlur    = 1.0f;
-    float dofTransition = 0.30f;
-
-    // Chromatic Aberration + Film Grain
-    bool  caEnabled     = true;
-    float caStrength    = 0.002f;
-    float grainStrength = 0.020f;
-
-    // SafeMode (always true for this release)
-    bool disableDepthAccess  = true;
-    bool disableMemoryScan   = true;
-    bool disableNetworkHooks = true;
+    // Shadow Depth Enhancement
+    bool  shadowDepthEnabled  = false;
+    float shadowDepth         = 0.55f;   // 0=none, 1=max
+    float shadowThreshold     = 0.45f;   // luma cutoff
+    float shadowFeather       = 0.20f;   // transition softness
 };
 
 class ConfigManager {
@@ -90,6 +80,9 @@ public:
 
     // Save current config back to global.ini
     bool Save(const std::string& basePath) const;
+
+    // Save current effect settings as a named preset file
+    bool SavePreset(const std::string& basePath, const std::string& name) const;
 
     Config&       Get()       { return m_cfg; }
     const Config& Get() const { return m_cfg; }

@@ -1,0 +1,23 @@
+# Normalize line endings
+* text=auto
+
+# Force LF for source files
+*.cpp    text eol=lf
+*.h      text eol=lf
+*.hlsl   text eol=lf
+*.ini    text eol=lf
+*.md     text eol=lf
+*.cmake  text eol=lf
+*.txt    text eol=lf
+*.json   text eol=lf
+*.yaml   text eol=lf
+*.def    text eol=lf
+
+# Binaries
+*.dll    binary
+*.lib    binary
+*.exp    binary
+*.png    binary
+*.jpg    binary
+*.mp4    binary
+*.ico    binary

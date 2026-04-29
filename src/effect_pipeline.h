@@ -51,6 +51,8 @@ private:
     void SetBloomConstants();
     void SetSharpenConstants();
     void SetVignetteConstants();
+    void SetAOConstants();
+    void SetShadowDepthConstants();
 
     // --- Device & dimensions ---
     IDirect3DDevice9*     m_device;
@@ -84,6 +86,8 @@ private:
     IDirect3DPixelShader9*  m_psSharpenCAS;
     IDirect3DPixelShader9*  m_psSharpenLuma;
     IDirect3DPixelShader9*  m_psVignette;
+    IDirect3DPixelShader9*  m_psAO;           // Ambient Occlusion
+    IDirect3DPixelShader9*  m_psShadowDepth;  // Shadow Depth Enhancement
 
     // --- State save/restore ---
     IDirect3DStateBlock9*   m_savedState;

@@ -217,7 +217,18 @@ HRESULT STDMETHODCALLTYPE ProxyDevice::SetTexture(DWORD s, IDirect3DBaseTexture9
 HRESULT STDMETHODCALLTYPE ProxyDevice::GetTextureStageState(DWORD s, D3DTEXTURESTAGESTATETYPE t, DWORD* v) { return m_real->GetTextureStageState(s,t,v); }
 HRESULT STDMETHODCALLTYPE ProxyDevice::SetTextureStageState(DWORD s, D3DTEXTURESTAGESTATETYPE t, DWORD v) { return m_real->SetTextureStageState(s,t,v); }
 HRESULT STDMETHODCALLTYPE ProxyDevice::GetSamplerState(DWORD s, D3DSAMPLERSTATETYPE t, DWORD* v) { return m_real->GetSamplerState(s,t,v); }
-HRESULT STDMETHODCALLTYPE ProxyDevice::SetSamplerState(DWORD s, D3DSAMPLERSTATETYPE t, DWORD v) { return m_real->SetSamplerState(s,t,v); }
+HRESULT STDMETHODCALLTYPE ProxyDevice::SetSamplerState(DWORD s, D3DSAMPLERSTATETYPE t, DWORD v)
+{
+    // Upgrade game texture filtering to Anisotropic 16x for smoother textures.
+    // Only apply to game-owned samplers (not our post-processing ones).
+    // Our pipeline calls SetSamplerState directly on m_real, so no double-upgrade.
+    if (t == D3DSAMP_MINFILTER && v == D3DTEXF_LINEAR) v = D3DTEXF_ANISOTROPIC;
+    if (t == D3DSAMP_MAGFILTER && v == D3DTEXF_LINEAR) v = D3DTEXF_ANISOTROPIC;
+    if (t == D3DSAMP_MIPFILTER && v == D3DTEXF_LINEAR) v = D3DTEXF_LINEAR; // keep mip linear
+    if (t == D3DSAMP_MAXANISOTROPY) v = 16; // force 16x anisotropy
+    return m_real->SetSamplerState(s, t, v);
+}
+
 HRESULT STDMETHODCALLTYPE ProxyDevice::ValidateDevice(DWORD* p)                     { return m_real->ValidateDevice(p); }
 HRESULT STDMETHODCALLTYPE ProxyDevice::SetPaletteEntries(UINT n, const PALETTEENTRY* e) { return m_real->SetPaletteEntries(n,e); }
 HRESULT STDMETHODCALLTYPE ProxyDevice::GetPaletteEntries(UINT n, PALETTEENTRY* e)   { return m_real->GetPaletteEntries(n,e); }

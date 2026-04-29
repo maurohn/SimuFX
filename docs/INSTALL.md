@@ -23,7 +23,7 @@ rFactor/
       vignette.hlsl
       final_composite.hlsl
     presets/
-      RaceRoomStyle.ini
+      Dynamic.ini
       Realistic.ini
       Cinematic.ini
       SharpClean.ini
@@ -66,3 +66,4 @@ cmake --build _build --config Release
 ```
 
 The compiled `d3d9.dll` will appear in `build/d3d9.dll`.
+

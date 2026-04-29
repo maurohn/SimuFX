@@ -2,6 +2,9 @@
 #include "config.h"
 #include "logger.h"
 #include <string>
+#include <algorithm>
+#include <windows.h>   // FindFirstFile
+#include <fstream>
 
 // ImGui headers
 #include "imgui.h"
@@ -60,6 +63,54 @@ static HWND FindGameWindow()
 }
 
 // ============================================================================
+// ScanPresets — reads all *.ini files from SimuFX/presets/ into m_presetNames
+// ============================================================================
+
+void Overlay::ScanPresets()
+{
+    m_presetNames.clear();
+
+    std::string pattern = m_cfgBase + "\\presets\\*.ini";
+    WIN32_FIND_DATAA fd = {};
+    HANDLE hFind = FindFirstFileA(pattern.c_str(), &fd);
+    if (hFind != INVALID_HANDLE_VALUE) {
+        do {
+            std::string name = fd.cFileName;
+            // Strip .ini extension
+            if (name.size() > 4)
+                name = name.substr(0, name.size() - 4);
+            m_presetNames.push_back(name);
+        } while (FindNextFileA(hFind, &fd));
+        FindClose(hFind);
+    }
+
+    // Sort alphabetically
+    std::sort(m_presetNames.begin(), m_presetNames.end());
+
+    // Find current preset index
+    const Config& cfg = ConfigManager::Instance().Get();
+    m_curPresetIdx = 0;
+    for (int i = 0; i < (int)m_presetNames.size(); ++i) {
+        if (m_presetNames[i] == cfg.preset) { m_curPresetIdx = i; break; }
+    }
+
+    LOG_INFO("Presets found: " + std::to_string(m_presetNames.size()));
+}
+
+// ============================================================================
+
+void Overlay::Toggle()
+{
+    m_visible = !m_visible;
+    // Show Windows cursor when overlay is open; hide when closed
+    // (rFactor hides the system cursor — we restore it for the overlay)
+    if (m_visible) {
+        while (ShowCursor(TRUE) < 0) {}   // increment until visible
+        ImGui::GetIO().MouseDrawCursor = false; // use system cursor
+    } else {
+        while (ShowCursor(FALSE) >= 0) {} // hide again
+    }
+}
 
 void Overlay::Init(IDirect3DDevice9* device, const std::string& exeDir)
 {
@@ -125,6 +176,9 @@ void Overlay::Init(IDirect3DDevice9* device, const std::string& exeDir)
 
     // Fix window title
     SetWindowTextA(m_hwnd, "SimuV3");
+
+    // Scan available presets on disk
+    ScanPresets();
 
     m_initialised = true;
     LOG_INFO("Overlay initialised (ImGui " IMGUI_VERSION ")");
@@ -193,6 +247,8 @@ void Overlay::Render(IDirect3DDevice9*)
         io.AddMouseButtonEvent(0, (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0);
         io.AddMouseButtonEvent(1, (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0);
         io.AddMouseButtonEvent(2, (GetAsyncKeyState(VK_MBUTTON) & 0x8000) != 0);
+        // Have ImGui render its own cursor so it's always visible in the overlay
+        io.MouseDrawCursor = true;
     }
 
     ImGui::NewFrame();
@@ -200,7 +256,7 @@ void Overlay::Render(IDirect3DDevice9*)
     Config& cfg = ConfigManager::Instance().Get();
 
     // ---- Main overlay window ----
-    ImGui::SetNextWindowSize(ImVec2(480, 680), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(480, 720), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
 
     ImGui::Begin("SimuFX  |  SimuV3 Post-Processor", nullptr,
@@ -231,20 +287,28 @@ void Overlay::Render(IDirect3DDevice9*)
 
     ImGui::Spacing();
 
-    // Enable / Preset row
+    // ---- Enable / Preset row ----
     ImGui::Checkbox("Enable SimuFX", &cfg.enabled);
     ImGui::SameLine(200);
     ImGui::SetNextItemWidth(200);
-    const char* presets[] = { "Dynamic", "Realistic", "Cinematic",
-                               "SharpClean", "NightBoost" };
-    int curPreset = 0;
-    for (int i = 0; i < 5; ++i)
-        if (cfg.preset == presets[i]) { curPreset = i; break; }
 
-    if (ImGui::Combo("Preset", &curPreset, presets, 5)) {
-        cfg.preset = presets[curPreset];
-        ConfigManager::Instance().ApplyPreset(m_cfgBase, cfg.preset);
-        LOG_INFO("Preset changed via overlay: " + cfg.preset);
+    // Build const char* list for combo from dynamic vector
+    std::vector<const char*> presetCStrs;
+    for (auto& s : m_presetNames) presetCStrs.push_back(s.c_str());
+
+    // Sync index to actual cfg.preset
+    for (int i = 0; i < (int)m_presetNames.size(); ++i)
+        if (m_presetNames[i] == cfg.preset) { m_curPresetIdx = i; break; }
+
+    if (!presetCStrs.empty()) {
+        if (ImGui::Combo("Preset", &m_curPresetIdx,
+                         presetCStrs.data(), (int)presetCStrs.size())) {
+            cfg.preset = m_presetNames[m_curPresetIdx];
+            ConfigManager::Instance().ApplyPreset(m_cfgBase, cfg.preset);
+            LOG_INFO("Preset changed: " + cfg.preset);
+        }
+    } else {
+        ImGui::TextDisabled("(no presets)");
     }
 
     ImGui::Spacing();
@@ -347,6 +411,32 @@ void Overlay::Render(IDirect3DDevice9*)
             ImGui::EndTabItem();
         }
 
+        // ---- AMBIENT OCCLUSION ----
+        if (ImGui::BeginTabItem("AO")) {
+            ImGui::Checkbox("Enabled##ao", &cfg.aoEnabled);
+            ImGui::Spacing();
+            ImGui::SetNextItemWidth(-1);
+            ImGui::SliderFloat("Strength", &cfg.aoStrength, 0.0f, 1.5f);
+            ImGui::SetNextItemWidth(-1);
+            ImGui::SliderFloat("Radius",   &cfg.aoRadius,   1.0f, 8.0f);
+            ImGui::SetNextItemWidth(-1);
+            ImGui::SliderFloat("Bias",     &cfg.aoBias,     0.0f, 0.1f);
+            ImGui::EndTabItem();
+        }
+
+        // ---- SHADOW DEPTH ----
+        if (ImGui::BeginTabItem("Shadows")) {
+            ImGui::Checkbox("Enabled##sdepth", &cfg.shadowDepthEnabled);
+            ImGui::Spacing();
+            ImGui::SetNextItemWidth(-1);
+            ImGui::SliderFloat("Depth",     &cfg.shadowDepth,     0.0f, 1.0f);
+            ImGui::SetNextItemWidth(-1);
+            ImGui::SliderFloat("Threshold", &cfg.shadowThreshold, 0.0f, 1.0f);
+            ImGui::SetNextItemWidth(-1);
+            ImGui::SliderFloat("Feather",   &cfg.shadowFeather,   0.0f, 0.5f);
+            ImGui::EndTabItem();
+        }
+
         ImGui::EndTabBar();
     }
 
@@ -354,7 +444,7 @@ void Overlay::Render(IDirect3DDevice9*)
     ImGui::Separator();
     ImGui::Spacing();
 
-    // Action buttons
+    // ---- Action buttons ----
     float bW = (ImGui::GetContentRegionAvail().x - 8) / 2.0f;
     if (ImGui::Button("Save Config", ImVec2(bW, 32))) {
         ConfigManager::Instance().Save(m_cfgBase);
@@ -362,8 +452,32 @@ void Overlay::Render(IDirect3DDevice9*)
     ImGui::SameLine(0, 8);
     if (ImGui::Button("Reload (F9)", ImVec2(bW, 32))) {
         ConfigManager::Instance().Load(m_cfgBase);
+        ScanPresets();
         LOG_INFO("Config reloaded from overlay");
     }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // ---- Save As New Preset ----
+    ImGui::TextColored(ImVec4(0.9f, 0.5f, 0.1f, 1), "Guardar como nuevo preset:");
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - 110);
+    ImGui::InputText("##presetName", m_saveAsName, sizeof(m_saveAsName));
+    ImGui::SameLine();
+    bool nameOk = m_saveAsName[0] != '\0';
+    if (!nameOk) ImGui::BeginDisabled();
+    if (ImGui::Button("Guardar", ImVec2(100, 0)) && nameOk) {
+        // Write current config as a new preset INI
+        std::string presetPath = m_cfgBase + "\\presets\\" + m_saveAsName + ".ini";
+        ConfigManager::Instance().SavePreset(m_cfgBase, m_saveAsName);
+        // Refresh combo list and select the new preset
+        cfg.preset = m_saveAsName;
+        ScanPresets();
+        m_saveAsName[0] = '\0';   // clear input
+        LOG_INFO("Preset saved: " + std::string(m_saveAsName));
+    }
+    if (!nameOk) ImGui::EndDisabled();
 
     ImGui::Spacing();
     ImGui::TextDisabled("F10  Toggle overlay   |   F9  Hot reload");

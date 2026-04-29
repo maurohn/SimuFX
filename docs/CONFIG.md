@@ -11,7 +11,7 @@ Changes take effect immediately after pressing **F9** (hot reload) — no restar
 | Key | Default | Description |
 |---|---|---|
 | `Enabled` | `true` | Master on/off switch. When false, the game renders unmodified. |
-| `Preset` | `RaceRoomStyle` | Preset file to load from the presets/ folder. |
+| `Preset` | `Dynamic` | Preset file to load from the presets/ folder. |
 | `ShowOverlay` | `true` | Whether the overlay is shown by default on launch. |
 | `ToggleKey` | `121` | VKey code for the overlay toggle (121 = F10). |
 | `ReloadKey` | `120` | VKey code for hot reload (120 = F9). |
@@ -99,3 +99,4 @@ These are always `true` in this release and cannot be changed. They document wha
 | `DisableDepthAccess` | `true` | SimuFX never reads the depth buffer. |
 | `DisableMemoryScan` | `true` | SimuFX never reads rFactor's process memory. |
 | `DisableNetworkHooks` | `true` | SimuFX never intercepts network traffic. |
+

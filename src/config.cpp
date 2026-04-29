@@ -50,7 +50,7 @@ bool ConfigManager::Load(const std::string& basePath)
 
     auto f  = iniPath;
     c.enabled     = ReadB(f, "General", "Enabled",     true);
-    c.preset      = ReadPrivate(f, "General", "Preset", "RaceRoomStyle");
+    c.preset      = ReadPrivate(f, "General", "Preset", "Dynamic");
     c.showOverlay = ReadB(f, "General", "ShowOverlay", true);
 
     // Color
@@ -94,6 +94,18 @@ bool ConfigManager::Load(const std::string& basePath)
     c.vignetteIntensity = ReadF(f, "Vignette", "Intensity", 0.08f);
     c.vignetteRadius    = ReadF(f, "Vignette", "Radius",    0.85f);
     c.vignetteSoftness  = ReadF(f, "Vignette", "Softness",  0.45f);
+
+    // Ambient Occlusion
+    c.aoEnabled  = ReadB(f, "AmbientOcclusion", "Enabled",  false);
+    c.aoStrength = ReadF(f, "AmbientOcclusion", "Strength", 0.65f);
+    c.aoRadius   = ReadF(f, "AmbientOcclusion", "Radius",   3.0f);
+    c.aoBias     = ReadF(f, "AmbientOcclusion", "Bias",     0.02f);
+
+    // Shadow Depth
+    c.shadowDepthEnabled = ReadB(f, "ShadowDepth", "Enabled",   false);
+    c.shadowDepth        = ReadF(f, "ShadowDepth", "Depth",     0.55f);
+    c.shadowThreshold    = ReadF(f, "ShadowDepth", "Threshold", 0.45f);
+    c.shadowFeather      = ReadF(f, "ShadowDepth", "Feather",   0.20f);
 
     LOG_INFO("Config loaded from: " + iniPath);
 
@@ -156,7 +168,80 @@ bool ConfigManager::Save(const std::string& basePath) const
     WriteP(f, "Vignette", "Radius",      fs(c.vignetteRadius));
     WriteP(f, "Vignette", "Softness",    fs(c.vignetteSoftness));
 
+    WriteP(f, "AmbientOcclusion", "Enabled",  bs(c.aoEnabled));
+    WriteP(f, "AmbientOcclusion", "Strength", fs(c.aoStrength));
+    WriteP(f, "AmbientOcclusion", "Radius",   fs(c.aoRadius));
+    WriteP(f, "AmbientOcclusion", "Bias",     fs(c.aoBias));
+
+    WriteP(f, "ShadowDepth", "Enabled",   bs(c.shadowDepthEnabled));
+    WriteP(f, "ShadowDepth", "Depth",     fs(c.shadowDepth));
+    WriteP(f, "ShadowDepth", "Threshold", fs(c.shadowThreshold));
+    WriteP(f, "ShadowDepth", "Feather",   fs(c.shadowFeather));
+
     LOG_INFO("Config saved to: " + f);
+    return true;
+}
+
+// --------------------------------------------------------------------------
+bool ConfigManager::SavePreset(const std::string& basePath,
+                                const std::string& name) const
+{
+    std::string f = basePath + "\\presets\\" + name + ".ini";
+    const Config& c = m_cfg;
+
+    auto bs = [](bool b){ return b ? "true" : "false"; };
+    auto fs = [](float v){
+        std::ostringstream ss; ss << v; return ss.str();
+    };
+
+    // Write only effect sections (no [General] — preset doesn't override global settings)
+    WriteP(f, "Color", "Enabled",     bs(c.colorEnabled));
+    WriteP(f, "Color", "Saturation",  fs(c.saturation));
+    WriteP(f, "Color", "Vibrance",    fs(c.vibrance));
+    WriteP(f, "Color", "Temperature", fs(c.temperature));
+    WriteP(f, "Color", "Tint",        fs(c.tint));
+
+    WriteP(f, "Tonemap", "Enabled",    bs(c.tonemapEnabled));
+    WriteP(f, "Tonemap", "Exposure",   fs(c.exposure));
+    WriteP(f, "Tonemap", "Gamma",      fs(c.gamma));
+    WriteP(f, "Tonemap", "Contrast",   fs(c.contrast));
+    WriteP(f, "Tonemap", "Highlights", fs(c.highlights));
+    WriteP(f, "Tonemap", "Shadows",    fs(c.shadows));
+    WriteP(f, "Tonemap", "Filmic",     bs(c.filmic));
+
+    WriteP(f, "Bloom", "Enabled",   bs(c.bloomEnabled));
+    WriteP(f, "Bloom", "Threshold", fs(c.bloomThreshold));
+    WriteP(f, "Bloom", "Intensity", fs(c.bloomIntensity));
+    WriteP(f, "Bloom", "Radius",    fs(c.bloomRadius));
+    WriteP(f, "Bloom", "SoftKnee", fs(c.bloomSoftKnee));
+
+    WriteP(f, "Sharpen", "Enabled",  bs(c.sharpenEnabled));
+    WriteP(f, "Sharpen", "Method",   c.sharpenMethod);
+    WriteP(f, "Sharpen", "Strength", fs(c.sharpenStrength));
+    WriteP(f, "Sharpen", "Clamp",    fs(c.sharpenClamp));
+
+    WriteP(f, "AntiAliasing", "Enabled",        bs(c.aaEnabled));
+    WriteP(f, "AntiAliasing", "Method",          c.aaMethod);
+    WriteP(f, "AntiAliasing", "Strength",        fs(c.aaStrength));
+    WriteP(f, "AntiAliasing", "EdgeThreshold",   fs(c.aaEdgeThreshold));
+    WriteP(f, "AntiAliasing", "SubpixelQuality", fs(c.aaSubpixelQuality));
+
+    WriteP(f, "Vignette", "Enabled",   bs(c.vignetteEnabled));
+    WriteP(f, "Vignette", "Intensity", fs(c.vignetteIntensity));
+    WriteP(f, "Vignette", "Radius",    fs(c.vignetteRadius));
+    WriteP(f, "Vignette", "Softness",  fs(c.vignetteSoftness));
+
+    WriteP(f, "AmbientOcclusion", "Enabled",  bs(c.aoEnabled));
+    WriteP(f, "AmbientOcclusion", "Strength", fs(c.aoStrength));
+    WriteP(f, "AmbientOcclusion", "Radius",   fs(c.aoRadius));
+    WriteP(f, "AmbientOcclusion", "Bias",     fs(c.aoBias));
+
+    WriteP(f, "ShadowDepth", "Enabled",   bs(c.shadowDepthEnabled));
+    WriteP(f, "ShadowDepth", "Depth",     fs(c.shadowDepth));
+    WriteP(f, "ShadowDepth", "Threshold", fs(c.shadowThreshold));
+    WriteP(f, "ShadowDepth", "Feather",   fs(c.shadowFeather));
+
+    LOG_INFO("Preset saved: " + f);
     return true;
 }
 
@@ -211,6 +296,18 @@ bool ConfigManager::ApplyPreset(const std::string& basePath, const std::string& 
     c.vignetteIntensity = ReadF(f, "Vignette", "Intensity", c.vignetteIntensity);
     c.vignetteRadius    = ReadF(f, "Vignette", "Radius",    c.vignetteRadius);
     c.vignetteSoftness  = ReadF(f, "Vignette", "Softness",  c.vignetteSoftness);
+
+    // AO
+    c.aoEnabled  = ReadB(f, "AmbientOcclusion", "Enabled",  c.aoEnabled);
+    c.aoStrength = ReadF(f, "AmbientOcclusion", "Strength", c.aoStrength);
+    c.aoRadius   = ReadF(f, "AmbientOcclusion", "Radius",   c.aoRadius);
+    c.aoBias     = ReadF(f, "AmbientOcclusion", "Bias",     c.aoBias);
+
+    // Shadow Depth
+    c.shadowDepthEnabled = ReadB(f, "ShadowDepth", "Enabled",   c.shadowDepthEnabled);
+    c.shadowDepth        = ReadF(f, "ShadowDepth", "Depth",     c.shadowDepth);
+    c.shadowThreshold    = ReadF(f, "ShadowDepth", "Threshold", c.shadowThreshold);
+    c.shadowFeather      = ReadF(f, "ShadowDepth", "Feather",   c.shadowFeather);
 
     c.preset = name;
     LOG_INFO("Preset applied: " + name);

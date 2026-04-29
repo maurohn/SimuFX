@@ -1,3 +1,6 @@
+# Recordings
+*.mp4
+
 # Build outputs
 _build/
 *.dll

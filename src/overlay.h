@@ -1,6 +1,7 @@
 #pragma once
 #include <d3d9.h>
 #include <string>
+#include <vector>
 
 namespace SimuFX {
 
@@ -14,7 +15,7 @@ public:
 
     void Init(IDirect3DDevice9* device, const std::string& exeDir);
     void Shutdown();
-    void Toggle() { m_visible = !m_visible; }
+    void Toggle();
     bool IsVisible() const { return m_visible; }
 
     void Render(IDirect3DDevice9* device);
@@ -29,11 +30,21 @@ private:
     Overlay(const Overlay&) = delete;
     Overlay& operator=(const Overlay&) = delete;
 
+    // Scan SimuFX/presets/ folder and refresh m_presetNames
+    void ScanPresets();
+
     bool        m_initialised = false;
     bool        m_visible     = false;
     HWND        m_hwnd        = nullptr;
     std::string m_exeDir;
     std::string m_cfgBase;
+
+    // Preset list (dynamic, scanned from disk)
+    std::vector<std::string> m_presetNames;
+    int                      m_curPresetIdx = 0;
+
+    // "Save As" input buffer
+    char m_saveAsName[64] = {};
 
     // Performance counters
     float  m_fps       = 0.0f;
