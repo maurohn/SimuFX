@@ -90,9 +90,15 @@ namespace SimuConfig
 
             // Adapter
             var driver = _gameIni.Get("COMPONENTS", "VideoDriver", "0");
-            // Resolution: we store "WxH" string
-            var mode = _gameIni.Get("COMPONENTS", "VideoMode", "10");
-            SelectResolutionByMode(int.TryParse(mode, out int m) ? m : 10);
+            // Resolution: try CustomVidRes first, then VideoMode as fallback
+            var customRes = _gameIni.Get("COMPONENTS", "CustomVidRes", "(0, 0)");
+            if (customRes != "(0, 0)" && TryParseCustomRes(customRes, out int cw, out int ch))
+                SelectResolutionByWH(cw, ch);
+            else
+            {
+                var mode = _gameIni.Get("COMPONENTS", "VideoMode", "10");
+                SelectResolutionByMode(int.TryParse(mode, out int m) ? m : 10);
+            }
 
             // FSAA
             var fsaa = int.TryParse(_gameIni.Get("COMPONENTS","FSAA","0"), out int f2) ? f2 : 0;
@@ -122,10 +128,16 @@ namespace SimuConfig
 
         private void LoadSimuFXIni()
         {
-            _loading = true;
             var f = Path.Combine(_simufxPath, "global.ini");
-            if (!File.Exists(f)) { _loading = false; return; }
+            if (!File.Exists(f)) return;
             _fxIni.Load(f);
+            ApplyFXToControls();
+        }
+
+        /// <summary>Apply current _fxIni values to all SimuFX controls without reloading from disk.</summary>
+        private void ApplyFXToControls()
+        {
+            _loading = true;
 
             ChkTonemap.IsChecked    = _fxIni.GetBool("Tonemap","Enabled", true);
             SldExposure.Value       = _fxIni.GetFloat("Tonemap","Exposure", 0.08f);
@@ -154,6 +166,7 @@ namespace SimuConfig
 
             _loading = false;
             UpdateLabels();
+            SchedulePreviewUpdate();
         }
 
         // ── Presets ──────────────────────────────────────────────────────────
@@ -169,7 +182,18 @@ namespace SimuConfig
             if (CbPreset.Items.Contains(cur)) CbPreset.SelectedItem = cur;
         }
 
-        private void CbPreset_SelectionChanged(object s, System.Windows.Controls.SelectionChangedEventArgs e) { }
+        private void CbPreset_SelectionChanged(object s, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (_loading || CbPreset.SelectedItem == null) return;
+            var name = CbPreset.SelectedItem.ToString()!;
+            var file = Path.Combine(_simufxPath, "presets", name + ".ini");
+            if (!File.Exists(file)) return;
+            var preset = new IniFile();
+            preset.Load(file);
+            _fxIni.MergeFrom(preset);
+            ApplyFXToControls(); // Don't reload from disk — use merged values
+            StatusText.Text = $"Preset '{name}' aplicado.";
+        }
 
         private void LoadPreset_Click(object s, RoutedEventArgs e)
         {
@@ -178,8 +202,7 @@ namespace SimuConfig
             var preset = new IniFile();
             preset.Load(Path.Combine(_simufxPath, "presets", name + ".ini"));
             _fxIni.MergeFrom(preset);
-            LoadSimuFXIni();
-            SchedulePreviewUpdate();
+            ApplyFXToControls();
             StatusText.Text = $"Preset '{name}' cargado.";
         }
 
@@ -199,24 +222,77 @@ namespace SimuConfig
         private void PopulateResolutions()
         {
             CbResolution.Items.Clear();
-            // Enumerate display modes
-            var modes = EnumDisplayModes();
+            CbRefresh.Items.Clear();
+
             var added = new HashSet<string>();
-            var allModes = modes.Concat(StdRes.ToList())
-                               .OrderBy(x => x.Item1).ThenBy(x => x.Item2);
-            foreach (var t in allModes)
+            var refreshRates = new SortedSet<int>();
+
+            try
             {
-                var key = $"{t.Item1}x{t.Item2}";
-                if (added.Add(key)) CbResolution.Items.Add(new System.Windows.Controls.ComboBoxItem
-                    { Content = $"{t.Item1} x {t.Item2}", Tag = $"{t.Item1},{t.Item2}" });
+                // Use CIM_VideoControllerResolution — same modes DirectX enumerates
+                var searcher = new System.Management.ManagementObjectSearcher(
+                    "select * from CIM_VideoControllerResolution");
+                foreach (System.Management.ManagementObject o in searcher.Get())
+                {
+                    var w = Convert.ToInt32(o["HorizontalResolution"]);
+                    var h = Convert.ToInt32(o["VerticalResolution"]);
+                    var colors = Convert.ToUInt64(o["NumberOfColors"]);
+                    var hz = Convert.ToInt32(o["RefreshRate"]);
+
+                    // Only 32-bit modes (NumberOfColors = 4294967296 = 2^32)
+                    if (colors < 65536 || w < 640) continue;
+
+                    var key = $"{w}x{h}";
+                    if (added.Add(key))
+                        CbResolution.Items.Add(new System.Windows.Controls.ComboBoxItem
+                            { Content = $"{w} x {h}", Tag = $"{w},{h}" });
+
+                    if (hz > 0) refreshRates.Add(hz);
+                }
             }
+            catch
+            {
+                // Fallback: add standard resolutions
+                foreach (var (w, h) in StdRes)
+                    CbResolution.Items.Add(new System.Windows.Controls.ComboBoxItem
+                        { Content = $"{w} x {h}", Tag = $"{w},{h}" });
+                refreshRates.Add(60);
+            }
+
             if (CbResolution.Items.Count > 0) CbResolution.SelectedIndex = 0;
+
+            // Populate refresh rates from actual supported values
+            foreach (var hz in refreshRates)
+                CbRefresh.Items.Add(new System.Windows.Controls.ComboBoxItem
+                    { Content = $"{hz} Hz", Tag = hz.ToString() });
+
+            if (CbRefresh.Items.Count > 0) CbRefresh.SelectedIndex = 0;
         }
 
         private void SelectResolutionByMode(int mode)
         {
             if (CbResolution.Items.Count > mode && mode >= 0)
                 CbResolution.SelectedIndex = mode;
+        }
+
+        private void SelectResolutionByWH(int w, int h)
+        {
+            var target = $"{w}x{h}";
+            for (int i = 0; i < CbResolution.Items.Count; i++)
+            {
+                var item = CbResolution.Items[i] as System.Windows.Controls.ComboBoxItem;
+                var tag = item?.Tag?.ToString()?.Replace(",","x").Replace(" ","");
+                if (tag == target) { CbResolution.SelectedIndex = i; return; }
+            }
+        }
+
+        private static bool TryParseCustomRes(string val, out int w, out int h)
+        {
+            w = h = 0;
+            val = val.Trim('(', ')', ' ');
+            var parts = val.Split(',');
+            if (parts.Length != 2) return false;
+            return int.TryParse(parts[0].Trim(), out w) && int.TryParse(parts[1].Trim(), out h) && w > 0;
         }
 
         private void SelectFsaa(int val)
@@ -229,35 +305,8 @@ namespace SimuConfig
         {
             foreach (System.Windows.Controls.ComboBoxItem item in CbRefresh.Items)
                 if (item.Tag?.ToString() == hz.ToString()) { CbRefresh.SelectedItem = item; return; }
-            CbRefresh.SelectedIndex = 0;
-        }
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        struct DEVMODE
-        {
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
-            public short  dmSpecVersion, dmDriverVersion, dmSize, dmDriverExtra;
-            public int    dmFields;
-            public int    dmPositionX, dmPositionY;
-            public int    dmDisplayOrientation, dmDisplayFixedOutput;
-            public short  dmColor, dmDuplex, dmYResolution, dmTTOption, dmCollate;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
-            public short  dmLogPixels;
-            public int    dmBitsPerPel, dmPelsWidth, dmPelsHeight;
-            public int    dmDisplayFlags, dmDisplayFrequency;
-        }
-
-        [DllImport("user32.dll", CharSet = CharSet.Ansi)]
-        static extern bool EnumDisplaySettingsA(string? dev, int mode, ref DEVMODE dm);
-
-        private static List<(int,int)> EnumDisplayModes()
-        {
-            var list = new List<(int,int)>();
-            var dm = new DEVMODE { dmSize = (short)Marshal.SizeOf<DEVMODE>() };
-            int i = 0;
-            while (EnumDisplaySettingsA(null, i++, ref dm))
-                list.Add((dm.dmPelsWidth, dm.dmPelsHeight));
-            return list.Distinct().ToList();
+            // Fallback: closest match
+            if (CbRefresh.Items.Count > 0) CbRefresh.SelectedIndex = CbRefresh.Items.Count - 1;
         }
 
         // ── GPU info ─────────────────────────────────────────────────────────
@@ -369,6 +418,7 @@ namespace SimuConfig
             StatusText.Text = "✓  Guardado correctamente.";
             System.Windows.MessageBox.Show("Configuración guardada.\nReiniciá el juego para aplicar los cambios.",
                 "SimuConfig", MessageBoxButton.OK, MessageBoxImage.Information);
+            Close();
         }
 
         private void Cancel_Click(object s, RoutedEventArgs e) => Close();
@@ -380,7 +430,16 @@ namespace SimuConfig
             _gameIni.Load(f);
 
             _gameIni.Set("COMPONENTS","VideoDriver",   CbAdapter.SelectedIndex.ToString());
-            _gameIni.Set("COMPONENTS","VideoMode",     CbResolution.SelectedIndex.ToString());
+
+            // Save resolution as CustomVidRes for reliable persistence
+            var resItem = CbResolution.SelectedItem as System.Windows.Controls.ComboBoxItem;
+            if (resItem?.Tag != null)
+            {
+                var parts = resItem.Tag.ToString()!.Split(',');
+                if (parts.Length == 2)
+                    _gameIni.Set("COMPONENTS","CustomVidRes", $"({parts[0]}, {parts[1]})");
+            }
+
             _gameIni.Set("COMPONENTS","ShaderLevel",   CbShaderLevel.SelectedIndex.ToString());
 
             var fsaaIdx = CbFSAA.SelectedIndex;

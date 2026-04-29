@@ -9,6 +9,7 @@
     <RootNamespace>SimuConfig</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PlatformTarget>x86</PlatformTarget>
+    <ApplicationIcon>assets\SimuV3.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Management" Version="8.0.0" />
