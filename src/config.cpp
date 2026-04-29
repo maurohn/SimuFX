@@ -109,9 +109,13 @@ bool ConfigManager::Load(const std::string& basePath)
 
     LOG_INFO("Config loaded from: " + iniPath);
 
-    // Now overlay the preset on top
-    if (!c.preset.empty()) {
+    // SimuConfig writes final values directly into global.ini and sets
+    // UseDirectValues=true, so we skip preset overlay in that case.
+    bool directValues = ReadB(f, "General", "UseDirectValues", false);
+    if (!directValues && !c.preset.empty()) {
         ApplyPreset(basePath, c.preset);
+    } else if (directValues) {
+        LOG_INFO("Using direct values from global.ini (set by SimuConfig)");
     }
 
     return true;

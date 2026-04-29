@@ -68,7 +68,7 @@ Source: "dist\SimuV3.ico"; DestDir: "{app}"; Components: core; Flags: ignorevers
 [Icons]
 Name: "{group}\SimuConfig"; Filename: "{app}\SimuConfig.exe"; IconFilename: "{app}\SimuV3.ico"; Components: config
 Name: "{group}\Desinstalar SimuFX"; Filename: "{uninstallexe}"
-Name: "{commondesktop}\SimuConfig"; Filename: "{app}\SimuConfig.exe"; IconFilename: "{app}\SimuV3.ico"; Components: config; Tasks: desktopicon
+Name: "{userdesktop}\SimuConfig"; Filename: "{app}\SimuConfig.exe"; IconFilename: "{app}\SimuV3.ico"; Components: config; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Crear acceso directo en el Escritorio"; Components: config

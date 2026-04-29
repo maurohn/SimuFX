@@ -467,6 +467,8 @@ namespace SimuConfig
             if (File.Exists(path)) ini.Load(path);
 
             ini.Set("General","Preset", CbPreset.SelectedItem?.ToString() ?? "Dynamic");
+            ini.Set("General","Enabled", "true");
+            ini.Set("General","UseDirectValues", "true");  // Tell engine to use these values as-is
             ini.Set("Tonemap","Enabled",    ChkTonemap.IsChecked == true ? "true":"false");
             ini.Set("Tonemap","Exposure",   SldExposure.Value.ToString("F2"));
             ini.Set("Tonemap","Contrast",   SldContrast.Value.ToString("F2"));
